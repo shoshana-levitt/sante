@@ -33,11 +33,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // List of widgets to display for each tab
   static const List<Widget> _pages = <Widget>[
-    Center(child: Text('Home', style: TextStyle(fontSize: 12))),
-    Center(child: Text('Search', style: TextStyle(fontSize: 12))),
-    Center(child: Text('New', style: TextStyle(fontSize: 12))),
-    Center(child: Text('Notifications', style: TextStyle(fontSize: 12))),
-    Center(child: Text('Profile', style: TextStyle(fontSize: 12))),
+    Center(child: Text('Home', style: TextStyle(fontSize: 24))),
+    Center(child: Text('Search', style: TextStyle(fontSize: 24))),
+    Center(child: Text('New', style: TextStyle(fontSize: 24))),
+    Center(child: Text('Notifications', style: TextStyle(fontSize: 24))),
+    Center(child: Text('Profile', style: TextStyle(fontSize: 24))),
   ];
 
   void _onItemTapped(int index) {
@@ -58,23 +58,23 @@ class _MyHomePageState extends State<MyHomePage> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Home',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.search),
-            label: 'Search',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
-            label: 'New',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
-            label: 'Notifications',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Profile',
+            label: '',
           ),
         ],
         currentIndex: _selectedIndex,
