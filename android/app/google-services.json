@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "40539824982",
+    "project_id": "sante-2026",
+    "storage_bucket": "sante-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:40539824982:android:d6a663b8759fc219ddacf7",
+        "android_client_info": {
+          "package_name": "com.example.sante"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1atiYmhvnr4osTIvzAzSncvJOV4CB48o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
