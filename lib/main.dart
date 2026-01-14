@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/new_post_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +63,7 @@ class _MyHomePageState extends State<MyHomePage> {
   static const List<Widget> _pages = <Widget>[
     Center(child: Text('Home', style: TextStyle(fontSize: 24))),
     Center(child: Text('Search', style: TextStyle(fontSize: 24))),
-    Center(child: Text('New', style: TextStyle(fontSize: 24))),
+    NewPostScreen(),
     Center(child: Text('Notifications', style: TextStyle(fontSize: 24))),
     ProfileScreen(),
   ];
@@ -76,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: _selectedIndex == 2 ? null : AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),

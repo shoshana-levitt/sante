@@ -27,7 +27,7 @@ class PostModel {
       id: doc.id,
       userId: data['userId'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
-      type: data['type'] ?? '',
+      type: data['type'] ?? 'freeform',
       caption: data['caption'] ?? '',
       likeCount: data['likeCount'] ?? 0,
       commentCount: data['commentCount'] ?? 0,
