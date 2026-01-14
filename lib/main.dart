@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/new_post_screen.dart';
+import 'screens/feed_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   static const List<Widget> _pages = <Widget>[
-    Center(child: Text('Home', style: TextStyle(fontSize: 24))),
+    FeedScreen(),
     Center(child: Text('Search', style: TextStyle(fontSize: 24))),
     NewPostScreen(),
     Center(child: Text('Notifications', style: TextStyle(fontSize: 24))),
