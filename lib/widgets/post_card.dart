@@ -4,6 +4,7 @@ import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../screens/comments_screen.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -226,9 +227,10 @@ class _PostCardState extends State<PostCard> {
                 IconButton(
                   icon: const Icon(Icons.comment_outlined),
                   onPressed: () {
-                    // TODO: Navigate to comments screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Comments coming soon!')),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => CommentsScreen(post: widget.post),
+                      ),
                     );
                   },
                 ),
