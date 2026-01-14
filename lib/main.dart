@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +23,27 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.greenAccent),
       ),
-      home: const MyHomePage(title: 'Santé'),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Show loading while checking auth state
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          // If user is logged in, show home page
+          if (snapshot.hasData) {
+            return const MyHomePage(title: 'Santé');
+          }
+
+          // If user is not logged in, show login screen
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
@@ -41,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
     Center(child: Text('Search', style: TextStyle(fontSize: 24))),
     Center(child: Text('New', style: TextStyle(fontSize: 24))),
     Center(child: Text('Notifications', style: TextStyle(fontSize: 24))),
-    Center(child: Text('Profile', style: TextStyle(fontSize: 24))),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
