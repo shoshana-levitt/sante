@@ -8,9 +8,11 @@ class FirestoreService {
     required String userId,
     required String email,
     required String username,
+    required String name,
   }) async {
     await _db.collection('users').doc(userId).set({
       'username': username,
+      'name': name,
       'email': email,
       'photoUrl': '',
       'bio': '',

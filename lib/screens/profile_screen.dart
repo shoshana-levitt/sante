@@ -167,14 +167,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _user!.username,
+                        _user!.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '@${_user!.username}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
                       if (_user!.bio.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(_user!.bio),
                       ],
                     ],

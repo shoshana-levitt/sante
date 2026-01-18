@@ -16,6 +16,7 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
   final StorageService _storageService = StorageService();
@@ -28,6 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: widget.user.name);
     _usernameController = TextEditingController(text: widget.user.username);
     _bioController = TextEditingController(text: widget.user.bio);
     _currentPhotoUrl = widget.user.photoUrl;
@@ -35,6 +37,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
@@ -86,6 +89,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           .collection('users')
           .doc(widget.user.id)
           .update({
+        'name': _nameController.text.trim(),
         'username': _usernameController.text.trim(),
         'bio': _bioController.text.trim(),
         'photoUrl': photoUrl,
@@ -195,6 +199,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: const Text('Change Profile Photo'),
               ),
               const SizedBox(height: 32),
+
+               // Name field
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
               // Username field
               TextFormField(
                 controller: _usernameController,
