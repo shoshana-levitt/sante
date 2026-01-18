@@ -4,34 +4,34 @@ class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Check if email is already in use
-Future<bool> isEmailInUse(String email) async {
-  try {
-    QuerySnapshot query = await _db
-        .collection('users')
-        .where('email', isEqualTo: email.trim().toLowerCase())
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
-  } catch (e) {
-    print('Error checking email: $e');
-    return false;
+  Future<bool> isEmailInUse(String email) async {
+    try {
+      QuerySnapshot query = await _db
+          .collection('users')
+          .where('email', isEqualTo: email.trim().toLowerCase())
+          .limit(1)
+          .get();
+      return query.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking email: $e');
+      return false;
+    }
   }
-}
 
-// Check if username is already taken
-Future<bool> isUsernameTaken(String username) async {
-  try {
-    QuerySnapshot query = await _db
-        .collection('users')
-        .where('username', isEqualTo: username.trim().toLowerCase())
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
-  } catch (e) {
-    print('Error checking username: $e');
-    return false;
+  // Check if username is already taken
+  Future<bool> isUsernameTaken(String username) async {
+    try {
+      QuerySnapshot query = await _db
+          .collection('users')
+          .where('username', isEqualTo: username.trim().toLowerCase())
+          .limit(1)
+          .get();
+      return query.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking username: $e');
+      return false;
+    }
   }
-}
 
   // Create a new user profile
   Future<void> createUser({
@@ -71,6 +71,7 @@ Future<bool> isUsernameTaken(String username) async {
       'caption': caption,
       'likeCount': 0,
       'commentCount': 0,
+      'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
     return docRef.id;
@@ -78,20 +79,37 @@ Future<bool> isUsernameTaken(String username) async {
 
   // Update post
   Future<void> updatePost({
-  required String postId,
-  required String caption,
-  required String type,
-}) async {
-  await _db.collection('posts').doc(postId).update({
-    'caption': caption,
-    'type': type,
-  });
-}
+    required String postId,
+    required String caption,
+    required String type,
+  }) async {
+    await _db.collection('posts').doc(postId).update({
+      'caption': caption,
+      'type': type,
+    });
+  }
+
+  // Archive/Unarchive post
+  Future<void> toggleArchivePost(String postId, bool isArchived) async {
+    await _db.collection('posts').doc(postId).update({
+      'isArchived': isArchived,
+    });
+  }
+
+  Stream<QuerySnapshot> getArchivedPosts(String userId) {
+  return _db
+      .collection('posts')
+      .where('userId', isEqualTo: userId)
+      .where('isArchived', isEqualTo: true)
+      .orderBy('createdAt', descending: true)
+      .snapshots();
+  }
 
   // Get all posts (for feed)
   Stream<QuerySnapshot> getPosts() {
     return _db
         .collection('posts')
+        .where('isArchived', isEqualTo: false) // Add this filter
         .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots();
@@ -102,6 +120,7 @@ Future<bool> isUsernameTaken(String username) async {
     return _db
         .collection('posts')
         .where('userId', isEqualTo: userId)
+        .where('isArchived', isEqualTo: false) // Add this filter
         .orderBy('createdAt', descending: true)
         .snapshots();
   }

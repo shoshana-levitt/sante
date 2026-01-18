@@ -9,6 +9,7 @@ class PostModel {
   final int likeCount;
   final int commentCount;
   final DateTime? createdAt;
+  final bool isArchived;
 
   PostModel({
     required this.id,
@@ -19,6 +20,7 @@ class PostModel {
     required this.likeCount,
     required this.commentCount,
     this.createdAt,
+    this.isArchived = false,
   });
 
   factory PostModel.fromFirestore(DocumentSnapshot doc) {
@@ -32,6 +34,7 @@ class PostModel {
       likeCount: data['likeCount'] ?? 0,
       commentCount: data['commentCount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      isArchived: data['isArchived'] ?? false,
     );
   }
 }

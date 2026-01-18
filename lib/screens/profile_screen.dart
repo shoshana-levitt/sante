@@ -10,7 +10,7 @@ import 'edit_profile_screen.dart';
 import 'post_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final String? userId; // If null, show current user's profile
+  final String? userId;
 
   const ProfileScreen({super.key, this.userId});
 
@@ -18,17 +18,26 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final FirestoreService _firestoreService = FirestoreService();
   UserModel? _user;
   bool _isLoading = true;
   int _postCount = 0;
+  int _archivedCount = 0;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   String get _profileUserId {
@@ -41,7 +50,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      // Get user data
       DocumentSnapshot userDoc = await _firestoreService.getUser(_profileUserId);
       if (userDoc.exists) {
         setState(() {
@@ -49,14 +57,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
 
-      // Get post count
+      // Get post count (non-archived)
       QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
           .collection('posts')
           .where('userId', isEqualTo: _profileUserId)
+          .where('isArchived', isEqualTo: false)
           .get();
+
+      // Get archived count (only for current user)
+      int archivedCount = 0;
+      if (_isCurrentUser) {
+        QuerySnapshot archivedSnapshot = await FirebaseFirestore.instance
+            .collection('posts')
+            .where('userId', isEqualTo: _profileUserId)
+            .where('isArchived', isEqualTo: true)
+            .get();
+        archivedCount = archivedSnapshot.docs.length;
+      }
 
       setState(() {
         _postCount = postsSnapshot.docs.length;
+        _archivedCount = archivedCount;
         _isLoading = false;
       });
     } catch (e) {
@@ -112,59 +133,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadUserData,
-      child: CustomScrollView(
-        slivers: [
+      child: Column(
+        children: [
           // Profile header
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                // Profile picture, stats, and edit button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      // Profile picture
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.greenAccent[700],
-                        backgroundImage: _user!.photoUrl.isNotEmpty
-                            ? NetworkImage(_user!.photoUrl)
-                            : null,
-                        child: _user!.photoUrl.isEmpty
-                            ? Text(
-                                _user!.username[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
+          Column(
+            children: [
+              const SizedBox(height: 16),
+              // Profile picture and stats
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Profile picture
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.greenAccent[700],
+                      backgroundImage: _user!.photoUrl.isNotEmpty
+                          ? NetworkImage(_user!.photoUrl)
+                          : null,
+                      child: _user!.photoUrl.isEmpty
+                          ? Text(
+                              _user!.username[0].toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 24),
+                    // Stats
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildStatColumn(_postCount.toString(), 'Posts'),
+                          _buildStatColumn(
+                              _user!.followerCount.toString(), 'Followers'),
+                          _buildStatColumn(
+                              _user!.followingCount.toString(), 'Following'),
+                        ],
                       ),
-                      const SizedBox(width: 24),
-                      // Stats
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildStatColumn(_postCount.toString(), 'Posts'),
-                            _buildStatColumn(
-                                _user!.followerCount.toString(), 'Followers'),
-                            _buildStatColumn(
-                                _user!.followingCount.toString(), 'Following'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                // Name and bio
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              ),
+              const SizedBox(height: 16),
+              // Name, username, and bio (left aligned)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: SizedBox(
+                  width: double.infinity, // Force full width
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start, // Left align
                     children: [
                       Text(
                         _user!.name,
@@ -188,8 +211,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Edit Profile / Logout button
+              ),
+              const SizedBox(height: 16),
+              // Edit Profile / Logout button
+              if (_isCurrentUser)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -231,110 +256,138 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-              ],
-            ),
-          ),
-          // Posts grid
-          StreamBuilder<QuerySnapshot>(
-            stream: _firestoreService.getUserPosts(_profileUserId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+              const SizedBox(height: 16),
+              const Divider(height: 1),
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.photo_library_outlined,
-                          size: 80,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _isCurrentUser ? 'No posts yet' : 'No posts',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (_isCurrentUser) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Share your first photo!',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ],
+              // Tabs (only show for current user)
+              if (_isCurrentUser)
+                TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.black,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.greenAccent[700],
+                  tabs: [
+                    Tab(
+                      icon: const Icon(Icons.grid_on),
+                      text: 'Posts',
                     ),
-                  ),
-                );
-              }
-
-              List<PostModel> posts = snapshot.data!.docs
-                  .map((doc) => PostModel.fromFirestore(doc))
-                  .toList();
-
-              return SliverPadding(
-                padding: const EdgeInsets.all(2.0),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 2,
-                    mainAxisSpacing: 2,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  PostDetailScreen(post: posts[index]),
-                            ),
-                          );
-                        },
-                        child: Image.network(
-                          posts[index].imageUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: Colors.grey[300],
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.error),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                    childCount: posts.length,
-                  ),
+                    Tab(
+                      icon: const Icon(Icons.archive_outlined),
+                      text: 'Archived ($_archivedCount)',
+                    ),
+                  ],
                 ),
-              );
-            },
+            ],
+          ),
+
+          // Tab views
+          Expanded(
+            child: _isCurrentUser
+                ? TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPostsGrid(isArchived: false),
+                      _buildPostsGrid(isArchived: true),
+                    ],
+                  )
+                : _buildPostsGrid(isArchived: false),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPostsGrid({required bool isArchived}) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: isArchived
+          ? _firestoreService.getArchivedPosts(_profileUserId)
+          : _firestoreService.getUserPosts(_profileUserId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isArchived ? Icons.archive_outlined : Icons.photo_library_outlined,
+                  size: 80,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isArchived
+                      ? 'No archived posts'
+                      : (_isCurrentUser ? 'No posts yet' : 'No posts'),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (!isArchived && _isCurrentUser) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Share your first photo!',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        List<PostModel> posts = snapshot.data!.docs
+            .map((doc) => PostModel.fromFirestore(doc))
+            .toList();
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(2.0),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PostDetailScreen(post: posts[index]),
+                  ),
+                ).then((_) => _loadUserData()); // Refresh counts when returning
+              },
+              child: Image.network(
+                posts[index].imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.error),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -36,13 +36,15 @@ class _PostCardState extends State<PostCard> {
   Future<void> _loadPostUser() async {
     try {
       DocumentSnapshot userDoc = await _firestoreService.getUser(widget.post.userId);
-      if (userDoc.exists) {
+      if (userDoc.exists && mounted) { // Add mounted check
         setState(() {
           _postUser = UserModel.fromFirestore(userDoc);
         });
       }
     } catch (e) {
-      print('Error loading user: $e');
+      if (mounted) {
+        print('Error loading user: $e');
+      }
     }
   }
 
@@ -50,9 +52,11 @@ class _PostCardState extends State<PostCard> {
     final currentUserId = _authService.currentUser?.uid;
     if (currentUserId != null) {
       bool liked = await _firestoreService.hasLikedPost(widget.post.id, currentUserId);
-      setState(() {
-        _isLiked = liked;
-      });
+      if (mounted) {
+        setState(() {
+          _isLiked = liked;
+        });
+      }
     }
   }
 
@@ -95,6 +99,31 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  Future<void> _toggleArchive() async {
+    try {
+      await _firestoreService.toggleArchivePost(
+        widget.post.id,
+        !widget.post.isArchived,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.post.isArchived ? 'Post unarchived' : 'Post archived',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   Color _getTypeColor() {
     switch (widget.post.type) {
       case 'activity':
@@ -128,7 +157,7 @@ class _PostCardState extends State<PostCard> {
                 leading: const Icon(Icons.edit),
                 title: const Text('Edit Post'),
                 onTap: () async {
-                  Navigator.pop(context); // Close bottom sheet
+                  Navigator.pop(context);
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -136,9 +165,18 @@ class _PostCardState extends State<PostCard> {
                     ),
                   );
                   if (result == true && mounted) {
-                    // Refresh the post by rebuilding the widget
                     setState(() {});
                   }
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  widget.post.isArchived ? Icons.unarchive : Icons.archive,
+                ),
+                title: Text(widget.post.isArchived ? 'Unarchive' : 'Archive'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _toggleArchive();
                 },
               ),
               ListTile(
