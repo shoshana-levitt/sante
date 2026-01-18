@@ -76,6 +76,18 @@ Future<bool> isUsernameTaken(String username) async {
     return docRef.id;
   }
 
+  // Update post
+  Future<void> updatePost({
+  required String postId,
+  required String caption,
+  required String type,
+}) async {
+  await _db.collection('posts').doc(postId).update({
+    'caption': caption,
+    'type': type,
+  });
+}
+
   // Get all posts (for feed)
   Stream<QuerySnapshot> getPosts() {
     return _db

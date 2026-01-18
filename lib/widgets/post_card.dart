@@ -4,7 +4,9 @@ import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 import '../screens/comments_screen.dart';
+import '../screens/edit_post_screen.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -18,6 +20,7 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
   UserModel? _postUser;
   bool _isLiked = false;
   int _likeCount = 0;
@@ -114,6 +117,116 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  void _showPostOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Post'),
+                onTap: () async {
+                  Navigator.pop(context); // Close bottom sheet
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditPostScreen(post: widget.post),
+                    ),
+                  );
+                  if (result == true && mounted) {
+                    // Refresh the post by rebuilding the widget
+                    setState(() {});
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Post', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteDialog(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Post'),
+          content: const Text('Are you sure you want to delete this post? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _deletePost();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deletePost() async {
+    try {
+      // Delete post document
+      await FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.post.id)
+          .delete();
+
+      // Delete all likes for this post
+      QuerySnapshot likes = await FirebaseFirestore.instance
+          .collection('likes')
+          .where('postId', isEqualTo: widget.post.id)
+          .get();
+
+      for (var doc in likes.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete all comments for this post
+      QuerySnapshot comments = await FirebaseFirestore.instance
+          .collection('comments')
+          .where('postId', isEqualTo: widget.post.id)
+          .get();
+
+      for (var doc in comments.docs) {
+        await doc.reference.delete();
+      }
+
+      // Delete image from storage
+      await _storageService.deleteImage(widget.post.imageUrl);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting post: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -175,6 +288,11 @@ class _PostCardState extends State<PostCard> {
                     ],
                   ),
                 ),
+                if (widget.post.userId == _authService.currentUser?.uid)
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
+                      onPressed: () => _showPostOptions(context),
+                 ),
               ],
             ),
           ),
