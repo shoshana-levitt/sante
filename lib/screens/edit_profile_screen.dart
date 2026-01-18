@@ -1,9 +1,11 @@
+// lib/screens/edit_profile_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/storage_service.dart';
+import '../services/firestore_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final UserModel user;
@@ -20,11 +22,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
   final StorageService _storageService = StorageService();
+  final FirestoreService _firestoreService = FirestoreService();
   final ImagePicker _picker = ImagePicker();
 
   File? _imageFile;
   bool _isLoading = false;
   String? _currentPhotoUrl;
+  String? _usernameError;
+  bool _checkingUsername = false;
+  String _originalUsername = '';
 
   @override
   void initState() {
@@ -33,6 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _usernameController = TextEditingController(text: widget.user.username);
     _bioController = TextEditingController(text: widget.user.bio);
     _currentPhotoUrl = widget.user.photoUrl;
+    _originalUsername = widget.user.username.toLowerCase();
   }
 
   @override
@@ -66,8 +73,52 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // Check username availability
+  Future<void> _checkUsernameAvailability(String username) async {
+    // Don't check if it's the user's current username
+    if (username.toLowerCase() == _originalUsername) {
+      setState(() {
+        _usernameError = null;
+        _checkingUsername = false;
+      });
+      return;
+    }
+
+    if (username.isEmpty || username.length < 3) return;
+
+    setState(() {
+      _checkingUsername = true;
+      _usernameError = null;
+    });
+
+    bool isTaken = await _firestoreService.isUsernameTaken(username);
+
+    if (mounted) {
+      setState(() {
+        _checkingUsername = false;
+        if (isTaken) {
+          _usernameError = 'This username is already taken';
+        }
+      });
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Check username one more time before saving if it changed
+    if (_usernameController.text.trim().toLowerCase() != _originalUsername) {
+      bool usernameTaken = await _firestoreService.isUsernameTaken(
+        _usernameController.text.trim()
+      );
+
+      if (usernameTaken) {
+        setState(() {
+          _usernameError = 'This username is already taken';
+        });
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -90,7 +141,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           .doc(widget.user.id)
           .update({
         'name': _nameController.text.trim(),
-        'username': _usernameController.text.trim(),
+        'username': _usernameController.text.trim().toLowerCase(),
         'bio': _bioController.text.trim(),
         'photoUrl': photoUrl,
       });
@@ -99,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated!')),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -124,7 +175,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           TextButton(
-            onPressed: _isLoading ? null : _saveProfile,
+            onPressed: (_isLoading || _checkingUsername) ? null : _saveProfile,
             child: _isLoading
                 ? const SizedBox(
                     width: 20,
@@ -134,7 +185,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 : Text(
                     'Save',
                     style: TextStyle(
-                      color: Colors.greenAccent[700],
+                      color: (_checkingUsername)
+                          ? Colors.grey
+                          : Colors.greenAccent[700],
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -200,7 +253,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 32),
 
-               // Name field
+              // Name field
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -208,6 +261,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.badge),
                 ),
+                textCapitalization: TextCapitalization.words,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
@@ -217,14 +271,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Username field
+              // Username field with validation
               TextFormField(
                 controller: _usernameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Username',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person),
+                  suffixIcon: _checkingUsername
+                      ? const Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : _usernameError == null &&
+                        _usernameController.text.isNotEmpty &&
+                        _usernameController.text.trim().toLowerCase() != _originalUsername
+                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          : null,
+                  errorText: _usernameError,
+                  errorMaxLines: 2,
+                  helperText: _usernameController.text.trim().toLowerCase() == _originalUsername
+                      ? 'Current username'
+                      : null,
                 ),
+                onChanged: (value) {
+                  // Debounce the check
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (value == _usernameController.text && value.length >= 3) {
+                      _checkUsernameAvailability(value);
+                    }
+                  });
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a username';
@@ -232,10 +313,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   if (value.length < 3) {
                     return 'Username must be at least 3 characters';
                   }
+                  if (value.contains(' ')) {
+                    return 'Username cannot contain spaces';
+                  }
+                  if (_usernameError != null) {
+                    return _usernameError;
+                  }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
+
               // Bio field
               TextFormField(
                 controller: _bioController,

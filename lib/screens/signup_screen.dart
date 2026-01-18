@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 import '../main.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -17,7 +18,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final AuthService _authService = AuthService();
+  final FirestoreService _firestoreService = FirestoreService();
+
   bool _isLoading = false;
+  String? _emailError;
+  String? _usernameError;
+  bool _checkingEmail = false;
+  bool _checkingUsername = false;
 
   @override
   void dispose() {
@@ -29,40 +36,113 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
+  // Check email availability
+  Future<void> _checkEmailAvailability(String email) async {
+    if (email.isEmpty || !email.contains('@')) return;
+
+    setState(() {
+      _checkingEmail = true;
+      _emailError = null;
+    });
+
+    bool isInUse = await _firestoreService.isEmailInUse(email);
+
+    if (mounted) {
       setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        await _authService.signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          username: _usernameController.text.trim(),
-          name: _nameController.text.trim(),
-        );
-
-        if (mounted) {
-          // Navigate to home screen
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const MyHomePage(title: 'Santé'),
-            ),
-          );
+        _checkingEmail = false;
+        if (isInUse) {
+          _emailError = 'This email is already in use';
         }
-      } catch (e) {
-        if (mounted) {
+      });
+    }
+  }
+
+  // Check username availability
+  Future<void> _checkUsernameAvailability(String username) async {
+    if (username.isEmpty || username.length < 3) return;
+
+    setState(() {
+      _checkingUsername = true;
+      _usernameError = null;
+    });
+
+    bool isTaken = await _firestoreService.isUsernameTaken(username);
+
+    if (mounted) {
+      setState(() {
+        _checkingUsername = false;
+        if (isTaken) {
+          _usernameError = 'This username is already taken';
+        }
+      });
+    }
+  }
+
+  Future<void> _signUp() async {
+    // Clear any previous errors
+    setState(() {
+      _emailError = null;
+      _usernameError = null;
+    });
+
+    // Validate form
+    if (!_formKey.currentState!.validate()) return;
+
+    // Check email and username one more time before signup
+    bool emailInUse = await _firestoreService.isEmailInUse(_emailController.text.trim());
+    bool usernameTaken = await _firestoreService.isUsernameTaken(_usernameController.text.trim());
+
+    if (emailInUse) {
+      setState(() {
+        _emailError = 'This email is already in use';
+      });
+      return;
+    }
+
+    if (usernameTaken) {
+      setState(() {
+        _usernameError = 'This username is already taken';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        username: _usernameController.text.trim().toLowerCase(),
+        name: _nameController.text.trim(),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const MyHomePage(title: 'Santé'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Check if it's an email already in use error from Firebase Auth
+        if (e.toString().contains('email-already-in-use')) {
+          setState(() {
+            _emailError = 'This email is already in use';
+          });
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(e.toString())),
           );
         }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -85,7 +165,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Title
                   Text(
                     'Create Account',
                     style: TextStyle(
@@ -104,6 +183,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.badge),
                     ),
+                    textCapitalization: TextCapitalization.words,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your name';
@@ -116,17 +196,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   // Username field
                   TextFormField(
                     controller: _usernameController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Username',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.person),
+                      suffixIcon: _checkingUsername
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : _usernameError == null && _usernameController.text.isNotEmpty
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : null,
+                      errorText: _usernameError,
+                      errorMaxLines: 2,
                     ),
+                    onChanged: (value) {
+                      // Debounce the check
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (value == _usernameController.text && value.length >= 3) {
+                          _checkUsernameAvailability(value);
+                        }
+                      });
+                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a username';
                       }
                       if (value.length < 3) {
                         return 'Username must be at least 3 characters';
+                      }
+                      if (value.contains(' ')) {
+                        return 'Username cannot contain spaces';
+                      }
+                      if (_usernameError != null) {
+                        return _usernameError;
                       }
                       return null;
                     },
@@ -137,17 +245,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.email),
+                      suffixIcon: _checkingEmail
+                          ? const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : _emailError == null && _emailController.text.contains('@')
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : null,
+                      errorText: _emailError,
+                      errorMaxLines: 2,
                     ),
+                    onChanged: (value) {
+                      // Debounce the check
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (value == _emailController.text && value.contains('@')) {
+                          _checkEmailAvailability(value);
+                        }
+                      });
+                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
                       if (!value.contains('@')) {
                         return 'Please enter a valid email';
+                      }
+                      if (_emailError != null) {
+                        return _emailError;
                       }
                       return null;
                     },
@@ -201,7 +334,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _signUp,
+                      onPressed: (_isLoading || _checkingEmail || _checkingUsername)
+                          ? null
+                          : _signUp,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.greenAccent[700],
                         foregroundColor: Colors.white,

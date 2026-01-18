@@ -3,6 +3,36 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Check if email is already in use
+Future<bool> isEmailInUse(String email) async {
+  try {
+    QuerySnapshot query = await _db
+        .collection('users')
+        .where('email', isEqualTo: email.trim().toLowerCase())
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  } catch (e) {
+    print('Error checking email: $e');
+    return false;
+  }
+}
+
+// Check if username is already taken
+Future<bool> isUsernameTaken(String username) async {
+  try {
+    QuerySnapshot query = await _db
+        .collection('users')
+        .where('username', isEqualTo: username.trim().toLowerCase())
+        .limit(1)
+        .get();
+    return query.docs.isNotEmpty;
+  } catch (e) {
+    print('Error checking username: $e');
+    return false;
+  }
+}
+
   // Create a new user profile
   Future<void> createUser({
     required String userId,
@@ -11,9 +41,9 @@ class FirestoreService {
     required String name,
   }) async {
     await _db.collection('users').doc(userId).set({
-      'username': username,
+      'username': username.toLowerCase(),
       'name': name,
-      'email': email,
+      'email': email.toLowerCase(),
       'photoUrl': '',
       'bio': '',
       'followerCount': 0,
