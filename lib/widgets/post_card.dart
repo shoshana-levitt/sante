@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../screens/edit_post_screen.dart';
 import '../screens/comments_screen.dart';
+import '../screens/profile_screen.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -277,18 +278,36 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               children: [
                 // Profile picture
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.greenAccent[700],
-                  backgroundImage: _postUser?.photoUrl.isNotEmpty == true
-                      ? NetworkImage(_postUser!.photoUrl)
-                      : null,
-                  child: _postUser?.photoUrl.isEmpty ?? true
-                      ? Text(
-                          _postUser?.username[0].toUpperCase() ?? 'U',
-                          style: const TextStyle(color: Colors.white),
-                        )
-                      : null,
+                GestureDetector(
+                  onTap: () {
+                    // Don't navigate if it's your own post - you're already on your profile in that tab
+                    if (widget.post.userId != _authService.currentUser?.uid) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => Scaffold(
+                            appBar: AppBar(
+                              title: Text(_postUser?.username ?? 'Profile'),
+                              backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+                            ),
+                            body: ProfileScreen(userId: widget.post.userId),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.greenAccent[700],
+                    backgroundImage: _postUser?.photoUrl.isNotEmpty == true
+                        ? NetworkImage(_postUser!.photoUrl)
+                        : null,
+                    child: _postUser?.photoUrl.isEmpty ?? true
+                        ? Text(
+                            _postUser?.username[0].toUpperCase() ?? 'U',
+                            style: const TextStyle(color: Colors.white),
+                          )
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 // Username and timestamp
@@ -298,11 +317,29 @@ class _PostCardState extends State<PostCard> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            _postUser?.username ?? 'Loading...',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          GestureDetector(
+                            onTap: () {
+                              // Don't navigate if it's your own post
+                              if (widget.post.userId != _authService.currentUser?.uid) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => Scaffold(
+                                      appBar: AppBar(
+                                        title: Text(_postUser?.username ?? 'Profile'),
+                                        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+                                      ),
+                                      body: ProfileScreen(userId: widget.post.userId),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Text(
+                              _postUser?.username ?? 'Loading...',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                           if (widget.post.isDraft) ...[
@@ -387,17 +424,38 @@ class _PostCardState extends State<PostCard> {
           if (widget.post.caption.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: RichText(
-                text: TextSpan(
-                  style: DefaultTextStyle.of(context).style,
-                  children: [
-                    TextSpan(
-                      text: '${_postUser?.username ?? ''} ',
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      // Don't navigate if it's your own post
+                      if (widget.post.userId != _authService.currentUser?.uid) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => Scaffold(
+                              appBar: AppBar(
+                                title: Text(_postUser?.username ?? 'Profile'),
+                                backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+                              ),
+                              body: ProfileScreen(userId: widget.post.userId),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      '${_postUser?.username ?? ''} ',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    TextSpan(text: widget.post.caption),
-                  ],
-                ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      widget.post.caption,
+                      style: DefaultTextStyle.of(context).style,
+                    ),
+                  ),
+                ],
               ),
             ),
 
