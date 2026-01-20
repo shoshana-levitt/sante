@@ -27,11 +27,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   int _archivedCount = 0;
   late TabController _tabController;
 
+  // Follow state
+  bool _isFollowing = false;
+  bool _isFollowLoading = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUserData();
+    _checkFollowStatus();
   }
 
   @override
@@ -46,6 +51,81 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   bool get _isCurrentUser {
     return _profileUserId == _authService.currentUser?.uid;
+  }
+
+  Future<void> _checkFollowStatus() async {
+    if (!_isCurrentUser) {
+      final currentUserId = _authService.currentUser?.uid;
+      if (currentUserId != null) {
+        bool following = await _firestoreService.isFollowing(currentUserId, _profileUserId);
+        setState(() {
+          _isFollowing = following;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final currentUserId = _authService.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    if (_isFollowing) {
+      // Show unfollow confirmation dialog
+      bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Unfollow'),
+            content: Text('Unfollow @${_user?.username ?? 'this user'}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Unfollow'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmed != true) return;
+    }
+
+    setState(() {
+      _isFollowLoading = true;
+    });
+
+    try {
+      if (_isFollowing) {
+        await _firestoreService.unfollowUser(currentUserId, _profileUserId);
+        setState(() {
+          _isFollowing = false;
+        });
+      } else {
+        await _firestoreService.followUser(currentUserId, _profileUserId);
+        setState(() {
+          _isFollowing = true;
+        });
+      }
+      // Reload user data to update follower count
+      await _loadUserData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFollowLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -213,49 +293,79 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ),
               ),
               const SizedBox(height: 16),
-              // Edit Profile / Logout button
-              if (_isCurrentUser)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EditProfileScreen(user: _user!),
+
+              // Edit Profile / Logout button (for current user) OR Follow button (for other users)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _isCurrentUser
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EditProfileScreen(user: _user!),
+                                  ),
+                                );
+                                if (result == true) {
+                                  _loadUserData();
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey[300]!),
                               ),
-                            );
-                            if (result == true) {
-                              _loadUserData();
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.grey[300]!),
-                          ),
-                          child: const Text(
-                            'Edit Profile',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
+                              child: const Text(
+                                'Edit Profile',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: _handleLogout,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.red[300]!),
+                            ),
+                            child: const Icon(Icons.logout, color: Colors.red),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isFollowLoading ? null : _toggleFollow,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isFollowing
+                                    ? Colors.grey[300]
+                                    : Colors.greenAccent[700],
+                                foregroundColor: _isFollowing
+                                    ? Colors.black
+                                    : Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: _isFollowLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Text(
+                                      _isFollowing ? 'Following' : 'Follow',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: _handleLogout,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.red[300]!),
-                        ),
-                        child: const Icon(Icons.logout, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
+              ),
+
               const SizedBox(height: 16),
               const Divider(height: 1),
 
