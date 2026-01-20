@@ -1,3 +1,4 @@
+// lib/screens/new_post_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,6 +6,7 @@ import '../services/storage_service.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/activity_form_widget.dart';
+import '../widgets/recipe_form_widget.dart';
 
 class NewPostScreen extends StatefulWidget {
   const NewPostScreen({super.key});
@@ -24,7 +26,8 @@ class _NewPostScreenState extends State<NewPostScreen> {
   bool _isLoading = false;
   String _selectedType = 'freeform';
 
-  Map<String, dynamic>? _activityData; // Changed from ActivityData? to Map<String, dynamic>?
+  Map<String, dynamic>? _activityData;
+  Map<String, dynamic>? _recipeData;
 
   final List<Map<String, dynamic>> _postTypes = [
     {'value': 'freeform', 'label': 'Freeform', 'icon': Icons.image},
@@ -114,24 +117,41 @@ class _NewPostScreenState extends State<NewPostScreen> {
     try {
       String imageUrl = await _storageService.uploadImage(_imageFile!, userId);
 
-      await _firestoreService.createPost(
+      String postId = await _firestoreService.createPost(
         userId: userId,
         imageUrl: imageUrl,
         caption: _captionController.text.trim(),
         type: _selectedType,
         activityData: _selectedType == 'activity' ? _activityData : null,
+        recipeData: _selectedType == 'meal' ? _recipeData : null,
       );
 
       if (mounted) {
+        // Show success toast
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post created successfully!')),
+          const SnackBar(
+            content: Text('Post created successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
         );
 
+        // Clear form
         setState(() {
           _imageFile = null;
           _captionController.clear();
           _selectedType = 'freeform';
           _activityData = null;
+          _recipeData = null;
+        });
+
+        // Wait a moment for the toast to show, then navigate to feed
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            // Find the ancestor MyHomePage and switch to feed tab (index 0)
+            final scaffoldMessenger = ScaffoldMessenger.of(context);
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
         });
       }
     } catch (e) {
@@ -253,9 +273,12 @@ class _NewPostScreenState extends State<NewPostScreen> {
                       if (newValue != null) {
                         setState(() {
                           _selectedType = newValue;
-                          // Clear activity data if switching away from activity
+                          // Clear data when switching types
                           if (_selectedType != 'activity') {
                             _activityData = null;
+                          }
+                          if (_selectedType != 'meal') {
+                            _recipeData = null;
                           }
                         });
                       }
@@ -286,6 +309,17 @@ class _NewPostScreenState extends State<NewPostScreen> {
                   onDataChanged: (data) {
                     setState(() {
                       _activityData = data;
+                    });
+                  },
+                ),
+
+              // Recipe Form (only show if type is meal)
+              if (_selectedType == 'meal')
+                RecipeFormWidget(
+                  initialData: _recipeData,
+                  onDataChanged: (data) {
+                    setState(() {
+                      _recipeData = data;
                     });
                   },
                 ),

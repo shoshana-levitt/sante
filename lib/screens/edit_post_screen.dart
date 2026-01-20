@@ -1,7 +1,9 @@
+// lib/screens/edit_post_screen.dart
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/firestore_service.dart';
 import '../widgets/activity_form_widget.dart';
+import '../widgets/recipe_form_widget.dart';
 
 class EditPostScreen extends StatefulWidget {
   final PostModel post;
@@ -20,6 +22,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
   bool _isLoading = false;
   String _selectedType = 'freeform';
   Map<String, dynamic>? _activityData;
+  Map<String, dynamic>? _recipeData;
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
     _captionController = TextEditingController(text: widget.post.caption);
     _selectedType = widget.post.type ?? 'freeform';
     _activityData = widget.post.activityData;
+    _recipeData = widget.post.recipeData;
   }
 
   @override
@@ -48,13 +52,12 @@ class _EditPostScreenState extends State<EditPostScreen> {
         caption: _captionController.text.trim(),
         type: _selectedType,
         activityData: _selectedType == 'activity' ? _activityData : null,
+        recipeData: _selectedType == 'meal' ? _recipeData : null,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post updated successfully!')),
-        );
-        Navigator.pop(context, true);
+        // Navigate back and pass success indicator
+        Navigator.pop(context, 'success');
       }
     } catch (e) {
       if (mounted) {
@@ -159,6 +162,11 @@ class _EditPostScreenState extends State<EditPostScreen> {
                     label: Text('Activity'),
                     icon: Icon(Icons.fitness_center),
                   ),
+                  ButtonSegment(
+                    value: 'meal',
+                    label: Text('Meal'),
+                    icon: Icon(Icons.restaurant),
+                  ),
                 ],
                 selected: {_selectedType},
                 onSelectionChanged: (Set<String> newSelection) {
@@ -166,6 +174,9 @@ class _EditPostScreenState extends State<EditPostScreen> {
                     _selectedType = newSelection.first;
                     if (_selectedType != 'activity') {
                       _activityData = null;
+                    }
+                    if (_selectedType != 'meal') {
+                      _recipeData = null;
                     }
                   });
                 },
@@ -199,6 +210,17 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   onDataChanged: (data) {
                     setState(() {
                       _activityData = data;
+                    });
+                  },
+                ),
+
+              // Recipe form (only show if type is meal)
+              if (_selectedType == 'meal')
+                RecipeFormWidget(
+                  initialData: _recipeData,
+                  onDataChanged: (data) {
+                    setState(() {
+                      _recipeData = data;
                     });
                   },
                 ),

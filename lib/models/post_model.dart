@@ -1,3 +1,4 @@
+// lib/models/post_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PostModel {
@@ -10,7 +11,8 @@ class PostModel {
   final int commentCount;
   final DateTime? createdAt;
   final bool isArchived;
-  final Map<String, dynamic>? activityData; // Changed from ActivityData? to Map<String, dynamic>?
+  final Map<String, dynamic>? activityData;
+  final Map<String, dynamic>? recipeData;
 
   PostModel({
     required this.id,
@@ -23,6 +25,7 @@ class PostModel {
     this.createdAt,
     this.isArchived = false,
     this.activityData,
+    this.recipeData,
   });
 
   factory PostModel.fromFirestore(DocumentSnapshot doc) {
@@ -38,7 +41,8 @@ class PostModel {
       commentCount: data['commentCount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       isArchived: data['isArchived'] ?? false,
-      activityData: data['activityData'] as Map<String, dynamic>?, // Cast to Map
+      activityData: data['activityData'] as Map<String, dynamic>?,
+      recipeData: data['recipeData'] as Map<String, dynamic>?,
     );
   }
 
@@ -53,6 +57,7 @@ class PostModel {
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'isArchived': isArchived,
       'activityData': activityData,
+      'recipeData': recipeData,
     };
   }
 }

@@ -1,3 +1,4 @@
+// lib/widgets/post_card.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/post_model.dart';
@@ -111,8 +112,15 @@ class _PostCardState extends State<PostCard> {
                       builder: (context) => EditPostScreen(post: widget.post),
                     ),
                   );
-                  if (result == true && mounted) {
+                  if (result == 'success' && mounted) {
                     setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Post updated successfully!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   }
                 },
               ),
@@ -449,6 +457,136 @@ class _PostCardState extends State<PostCard> {
                           Icons.straighten,
                           widget.post.activityData!['distance'],
                         ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          // Recipe data section (if post type is meal)
+          if (widget.post.type == 'meal' && widget.post.recipeData != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Recipe Header
+                    Row(
+                      children: [
+                        Icon(Icons.restaurant, size: 20, color: Colors.orange[700]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Recipe',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Commentary
+                    if (widget.post.recipeData!['commentary'] != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.post.recipeData!['commentary'],
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+
+                    // Difficulty & Cook Time
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.bar_chart, size: 16, color: Colors.grey[700]),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.post.recipeData!['difficulty'] ?? 'Easy',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (widget.post.recipeData!['cookTime'] != null) ...[
+                          const SizedBox(width: 16),
+                          Icon(Icons.timer, size: 16, color: Colors.grey[700]),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.post.recipeData!['cookTime'],
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    // Ingredients
+                    if (widget.post.recipeData!['ingredients'] != null &&
+                        (widget.post.recipeData!['ingredients'] as List).isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Ingredients',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ...(widget.post.recipeData!['ingredients'] as List).map((ingredient) {
+                        final ing = ingredient as Map<String, dynamic>;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.circle, size: 6, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  ing['amount'] != null
+                                      ? '${ing['amount']} ${ing['name']}'
+                                      : ing['name'],
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+
+                    // Instructions
+                    if (widget.post.recipeData!['instructions'] != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Instructions',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.post.recipeData!['instructions'],
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ],
                 ),

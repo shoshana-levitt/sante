@@ -1,3 +1,4 @@
+// lib/services/firestore_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService {
@@ -83,6 +84,7 @@ class FirestoreService {
     required String caption,
     required String type,
     Map<String, dynamic>? activityData,
+    Map<String, dynamic>? recipeData,
   }) async {
     Map<String, dynamic> postData = {
       'userId': userId,
@@ -100,6 +102,11 @@ class FirestoreService {
       postData['activityData'] = activityData;
     }
 
+    // Add recipe data if type is meal
+    if (type == 'meal' && recipeData != null) {
+      postData['recipeData'] = recipeData;
+    }
+
     DocumentReference docRef = await _db.collection('posts').add(postData);
     return docRef.id;
   }
@@ -110,6 +117,7 @@ class FirestoreService {
     required String caption,
     required String type,
     Map<String, dynamic>? activityData,
+    Map<String, dynamic>? recipeData,
   }) async {
     Map<String, dynamic> updateData = {
       'caption': caption,
@@ -118,9 +126,14 @@ class FirestoreService {
 
     if (type == 'activity' && activityData != null) {
       updateData['activityData'] = activityData;
+      updateData['recipeData'] = FieldValue.delete(); // Remove recipe data if switching to activity
+    } else if (type == 'meal' && recipeData != null) {
+      updateData['recipeData'] = recipeData;
+      updateData['activityData'] = FieldValue.delete(); // Remove activity data if switching to meal
     } else {
-      // Remove activity data if switching away from activity type
+      // Remove both if switching to freeform
       updateData['activityData'] = FieldValue.delete();
+      updateData['recipeData'] = FieldValue.delete();
     }
 
     await _db.collection('posts').doc(postId).update(updateData);
