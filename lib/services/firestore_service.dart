@@ -85,6 +85,7 @@ class FirestoreService {
     required String type,
     Map<String, dynamic>? activityData,
     Map<String, dynamic>? recipeData,
+    bool isDraft = false,
   }) async {
     Map<String, dynamic> postData = {
       'userId': userId,
@@ -93,7 +94,8 @@ class FirestoreService {
       'type': type,
       'likeCount': 0,
       'commentCount': 0,
-      'isArchived': false,
+      'isArchived': isDraft, // Drafts are also archived
+      'isDraft': isDraft,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -169,6 +171,15 @@ class FirestoreService {
   Future<void> toggleArchivePost(String postId, bool isArchived) async {
     await _db.collection('posts').doc(postId).update({
       'isArchived': isArchived,
+    });
+  }
+
+  // Publish draft (remove from archived and mark as not draft)
+  Future<void> publishDraft(String postId) async {
+    await _db.collection('posts').doc(postId).update({
+      'isArchived': false,
+      'isDraft': false,
+      'createdAt': FieldValue.serverTimestamp(), // Update timestamp when publishing
     });
   }
 

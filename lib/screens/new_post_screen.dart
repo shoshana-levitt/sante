@@ -94,7 +94,7 @@ class _NewPostScreenState extends State<NewPostScreen> {
     );
   }
 
-  Future<void> _uploadPost() async {
+  Future<void> _uploadPost({required bool isDraft}) async {
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an image')),
@@ -124,15 +124,16 @@ class _NewPostScreenState extends State<NewPostScreen> {
         type: _selectedType,
         activityData: _selectedType == 'activity' ? _activityData : null,
         recipeData: _selectedType == 'meal' ? _recipeData : null,
+        isDraft: isDraft,
       );
 
       if (mounted) {
         // Show success toast
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Post created successfully!'),
+          SnackBar(
+            content: Text(isDraft ? 'Draft saved successfully!' : 'Post created successfully!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
 
@@ -175,26 +176,6 @@ class _NewPostScreenState extends State<NewPostScreen> {
       appBar: AppBar(
         title: const Text('New Post'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          if (_imageFile != null)
-            TextButton(
-              onPressed: _isLoading ? null : _uploadPost,
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      'Post',
-                      style: TextStyle(
-                        color: Colors.greenAccent[700],
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -338,6 +319,57 @@ class _NewPostScreenState extends State<NewPostScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
+
+              // Post and Save as Draft buttons (only show when image is selected)
+              if (_imageFile != null) ...[
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    // Save as Draft button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : () => _uploadPost(isDraft: true),
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Save as Draft'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Post button
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : () => _uploadPost(isDraft: false),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.send),
+                        label: Text(_isLoading ? 'Uploading...' : 'Post'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

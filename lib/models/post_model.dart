@@ -11,6 +11,7 @@ class PostModel {
   final int commentCount;
   final DateTime? createdAt;
   final bool isArchived;
+  final bool isDraft;
   final Map<String, dynamic>? activityData;
   final Map<String, dynamic>? recipeData;
 
@@ -24,6 +25,7 @@ class PostModel {
     required this.commentCount,
     this.createdAt,
     this.isArchived = false,
+    this.isDraft = false,
     this.activityData,
     this.recipeData,
   });
@@ -41,6 +43,7 @@ class PostModel {
       commentCount: data['commentCount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       isArchived: data['isArchived'] ?? false,
+      isDraft: data['isDraft'] ?? false,
       activityData: data['activityData'] as Map<String, dynamic>?,
       recipeData: data['recipeData'] as Map<String, dynamic>?,
     );
@@ -56,6 +59,7 @@ class PostModel {
       'commentCount': commentCount,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'isArchived': isArchived,
+      'isDraft': isDraft,
       'activityData': activityData,
       'recipeData': recipeData,
     };

@@ -126,12 +126,22 @@ class _PostCardState extends State<PostCard> {
               ),
               ListTile(
                 leading: Icon(
-                  widget.post.isArchived ? Icons.unarchive : Icons.archive,
+                  widget.post.isDraft
+                      ? Icons.publish
+                      : (widget.post.isArchived ? Icons.unarchive : Icons.archive),
                 ),
-                title: Text(widget.post.isArchived ? 'Unarchive' : 'Archive'),
+                title: Text(
+                  widget.post.isDraft
+                      ? 'Publish'
+                      : (widget.post.isArchived ? 'Unarchive' : 'Archive')
+                ),
                 onTap: () async {
                   Navigator.pop(context);
-                  await _toggleArchive();
+                  if (widget.post.isDraft) {
+                    await _publishDraft();
+                  } else {
+                    await _toggleArchive();
+                  }
                 },
               ),
               ListTile(
@@ -162,6 +172,27 @@ class _PostCardState extends State<PostCard> {
             content: Text(
               widget.post.isArchived ? 'Post unarchived' : 'Post archived',
             ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishDraft() async {
+    try {
+      await _firestoreService.publishDraft(widget.post.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft published successfully!'),
+            backgroundColor: Colors.green,
           ),
         );
       }
@@ -265,12 +296,35 @@ class _PostCardState extends State<PostCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _postUser?.username ?? 'Loading...',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            _postUser?.username ?? 'Loading...',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (widget.post.isDraft) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.orange),
+                              ),
+                              child: Text(
+                                'DRAFT',
+                                style: TextStyle(
+                                  color: Colors.orange[900],
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (widget.post.createdAt != null)
                         Text(
