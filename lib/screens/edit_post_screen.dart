@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../services/firestore_service.dart';
+import '../widgets/activity_form_widget.dart';
 
 class EditPostScreen extends StatefulWidget {
   final PostModel post;
@@ -17,20 +18,15 @@ class _EditPostScreenState extends State<EditPostScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   bool _isLoading = false;
-  late String _selectedType;
-
-  // Post type options
-  final List<Map<String, dynamic>> _postTypes = [
-    {'value': 'freeform', 'label': 'Freeform', 'icon': Icons.image},
-    {'value': 'activity', 'label': 'Activity', 'icon': Icons.directions_run},
-    {'value': 'meal', 'label': 'Meal', 'icon': Icons.restaurant},
-  ];
+  String _selectedType = 'freeform';
+  Map<String, dynamic>? _activityData;
 
   @override
   void initState() {
     super.initState();
     _captionController = TextEditingController(text: widget.post.caption);
-    _selectedType = widget.post.type;
+    _selectedType = widget.post.type ?? 'freeform';
+    _activityData = widget.post.activityData;
   }
 
   @override
@@ -39,7 +35,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
     super.dispose();
   }
 
-  Future<void> _savePost() async {
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -51,13 +47,14 @@ class _EditPostScreenState extends State<EditPostScreen> {
         postId: widget.post.id,
         caption: _captionController.text.trim(),
         type: _selectedType,
+        activityData: _selectedType == 'activity' ? _activityData : null,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post updated!')),
+          const SnackBar(content: Text('Post updated successfully!')),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -81,37 +78,41 @@ class _EditPostScreenState extends State<EditPostScreen> {
         title: const Text('Edit Post'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _savePost,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    'Save',
-                    style: TextStyle(
-                      color: Colors.greenAccent[700],
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _saveChanges,
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Image preview (non-editable)
+              // Image preview (not editable)
               Container(
                 height: 300,
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey[300]!),
                 ),
@@ -145,58 +146,93 @@ class _EditPostScreenState extends State<EditPostScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Post Type Dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedType,
-                    isExpanded: true,
-                    icon: const Icon(Icons.arrow_drop_down),
-                    items: _postTypes.map((type) {
-                      return DropdownMenuItem<String>(
-                        value: type['value'],
-                        child: Row(
-                          children: [
-                            Icon(type['icon'], size: 20, color: Colors.greenAccent[700]),
-                            const SizedBox(width: 12),
-                            Text(
-                              type['label'],
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedType = newValue;
-                        });
-                      }
-                    },
+              // Post type selector
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'freeform',
+                    label: Text('Freeform'),
+                    icon: Icon(Icons.edit),
                   ),
-                ),
+                  ButtonSegment(
+                    value: 'activity',
+                    label: Text('Activity'),
+                    icon: Icon(Icons.fitness_center),
+                  ),
+                ],
+                selected: {_selectedType},
+                onSelectionChanged: (Set<String> newSelection) {
+                  setState(() {
+                    _selectedType = newSelection.first;
+                    if (_selectedType != 'activity') {
+                      _activityData = null;
+                    }
+                  });
+                },
               ),
               const SizedBox(height: 16),
 
               // Caption field
               TextFormField(
                 controller: _captionController,
-                maxLines: 4,
+                maxLines: 3,
                 maxLength: 500,
                 decoration: InputDecoration(
-                  labelText: 'Caption',
+                  hintText: 'Write a caption...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a caption';
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 16),
+
+              // Activity form (only show if type is activity)
+              if (_selectedType == 'activity')
+                ActivityFormWidget(
+                  initialData: _activityData,
+                  onDataChanged: (data) {
+                    setState(() {
+                      _activityData = data;
+                    });
+                  },
+                ),
+
               const SizedBox(height: 24),
+
+              // Save button (alternative to app bar button)
+              ElevatedButton(
+                onPressed: _isLoading ? null : _saveChanges,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.greenAccent[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
             ],
           ),
         ),

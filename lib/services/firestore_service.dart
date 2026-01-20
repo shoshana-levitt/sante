@@ -57,23 +57,50 @@ class FirestoreService {
     return await _db.collection('users').doc(userId).get();
   }
 
+  // Update user profile
+  Future<void> updateUser({
+    required String userId,
+    required String username,
+    required String bio,
+    String? photoUrl,
+  }) async {
+    Map<String, dynamic> updateData = {
+      'username': username.toLowerCase(),
+      'bio': bio,
+    };
+
+    if (photoUrl != null) {
+      updateData['photoUrl'] = photoUrl;
+    }
+
+    await _db.collection('users').doc(userId).update(updateData);
+  }
+
   // Create a new post
   Future<String> createPost({
     required String userId,
     required String imageUrl,
-    required String type,
     required String caption,
+    required String type,
+    Map<String, dynamic>? activityData,
   }) async {
-    DocumentReference docRef = await _db.collection('posts').add({
+    Map<String, dynamic> postData = {
       'userId': userId,
       'imageUrl': imageUrl,
-      'type': type,
       'caption': caption,
+      'type': type,
       'likeCount': 0,
       'commentCount': 0,
       'isArchived': false,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    // Add activity data if type is activity
+    if (type == 'activity' && activityData != null) {
+      postData['activityData'] = activityData;
+    }
+
+    DocumentReference docRef = await _db.collection('posts').add(postData);
     return docRef.id;
   }
 
@@ -82,11 +109,47 @@ class FirestoreService {
     required String postId,
     required String caption,
     required String type,
+    Map<String, dynamic>? activityData,
   }) async {
-    await _db.collection('posts').doc(postId).update({
+    Map<String, dynamic> updateData = {
       'caption': caption,
       'type': type,
-    });
+    };
+
+    if (type == 'activity' && activityData != null) {
+      updateData['activityData'] = activityData;
+    } else {
+      // Remove activity data if switching away from activity type
+      updateData['activityData'] = FieldValue.delete();
+    }
+
+    await _db.collection('posts').doc(postId).update(updateData);
+  }
+
+  // Delete post
+  Future<void> deletePost(String postId) async {
+    // Delete the post document
+    await _db.collection('posts').doc(postId).delete();
+
+    // Delete all likes for this post
+    QuerySnapshot likesQuery = await _db
+        .collection('likes')
+        .where('postId', isEqualTo: postId)
+        .get();
+
+    for (var doc in likesQuery.docs) {
+      await doc.reference.delete();
+    }
+
+    // Delete all comments for this post
+    QuerySnapshot commentsQuery = await _db
+        .collection('comments')
+        .where('postId', isEqualTo: postId)
+        .get();
+
+    for (var doc in commentsQuery.docs) {
+      await doc.reference.delete();
+    }
   }
 
   // Archive/Unarchive post
@@ -96,20 +159,21 @@ class FirestoreService {
     });
   }
 
+  // Get archived posts
   Stream<QuerySnapshot> getArchivedPosts(String userId) {
-  return _db
-      .collection('posts')
-      .where('userId', isEqualTo: userId)
-      .where('isArchived', isEqualTo: true)
-      .orderBy('createdAt', descending: true)
-      .snapshots();
+    return _db
+        .collection('posts')
+        .where('userId', isEqualTo: userId)
+        .where('isArchived', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   // Get all posts (for feed)
   Stream<QuerySnapshot> getPosts() {
     return _db
         .collection('posts')
-        .where('isArchived', isEqualTo: false) // Add this filter
+        .where('isArchived', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots();
@@ -120,7 +184,7 @@ class FirestoreService {
     return _db
         .collection('posts')
         .where('userId', isEqualTo: userId)
-        .where('isArchived', isEqualTo: false) // Add this filter
+        .where('isArchived', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
@@ -254,5 +318,16 @@ class FirestoreService {
         .where('postId', isEqualTo: postId)
         .orderBy('createdAt', descending: false)
         .snapshots();
+  }
+
+  // Delete a comment
+  Future<void> deleteComment(String commentId, String postId) async {
+    // Delete the comment
+    await _db.collection('comments').doc(commentId).delete();
+
+    // Decrement comment count
+    await _db.collection('posts').doc(postId).update({
+      'commentCount': FieldValue.increment(-1),
+    });
   }
 }

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/activity_form_widget.dart';
 
 class NewPostScreen extends StatefulWidget {
   const NewPostScreen({super.key});
@@ -22,6 +23,8 @@ class _NewPostScreenState extends State<NewPostScreen> {
   File? _imageFile;
   bool _isLoading = false;
   String _selectedType = 'freeform';
+
+  Map<String, dynamic>? _activityData; // Changed from ActivityData? to Map<String, dynamic>?
 
   final List<Map<String, dynamic>> _postTypes = [
     {'value': 'freeform', 'label': 'Freeform', 'icon': Icons.image},
@@ -109,15 +112,14 @@ class _NewPostScreenState extends State<NewPostScreen> {
     });
 
     try {
-      // Upload image to Firebase Storage
       String imageUrl = await _storageService.uploadImage(_imageFile!, userId);
 
-      // Create post in Firestore
       await _firestoreService.createPost(
         userId: userId,
         imageUrl: imageUrl,
-        type: _selectedType,
         caption: _captionController.text.trim(),
+        type: _selectedType,
+        activityData: _selectedType == 'activity' ? _activityData : null,
       );
 
       if (mounted) {
@@ -125,11 +127,11 @@ class _NewPostScreenState extends State<NewPostScreen> {
           const SnackBar(content: Text('Post created successfully!')),
         );
 
-        // Clear form
         setState(() {
           _imageFile = null;
-          _selectedType = 'freeform';
           _captionController.clear();
+          _selectedType = 'freeform';
+          _activityData = null;
         });
       }
     } catch (e) {
@@ -180,7 +182,7 @@ class _NewPostScreenState extends State<NewPostScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Image preview or placeholder
+              // Image preview
               GestureDetector(
                 onTap: _showImageSourceDialog,
                 child: Container(
@@ -251,6 +253,10 @@ class _NewPostScreenState extends State<NewPostScreen> {
                       if (newValue != null) {
                         setState(() {
                           _selectedType = newValue;
+                          // Clear activity data if switching away from activity
+                          if (_selectedType != 'activity') {
+                            _activityData = null;
+                          }
                         });
                       }
                     },
@@ -271,7 +277,33 @@ class _NewPostScreenState extends State<NewPostScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Activity Form (only show if type is activity)
+              if (_selectedType == 'activity')
+                ActivityFormWidget(
+                  initialData: _activityData,
+                  onDataChanged: (data) {
+                    setState(() {
+                      _activityData = data;
+                    });
+                  },
+                ),
+
               const SizedBox(height: 24),
+
+              // Select image button
+              if (_imageFile == null)
+                ElevatedButton.icon(
+                  onPressed: _showImageSourceDialog,
+                  icon: const Icon(Icons.image),
+                  label: const Text('Select Image'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.greenAccent[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
             ],
           ),
         ),

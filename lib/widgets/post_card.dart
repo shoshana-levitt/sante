@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/post_model.dart';
 import '../models/user_model.dart';
-import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
-import '../services/storage_service.dart';
-import '../screens/comments_screen.dart';
+import '../services/firestore_service.dart';
 import '../screens/edit_post_screen.dart';
+import '../screens/comments_screen.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -18,9 +17,8 @@ class PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<PostCard> {
-  final FirestoreService _firestoreService = FirestoreService();
   final AuthService _authService = AuthService();
-  final StorageService _storageService = StorageService();
+  final FirestoreService _firestoreService = FirestoreService();
   UserModel? _postUser;
   bool _isLiked = false;
   int _likeCount = 0;
@@ -36,15 +34,13 @@ class _PostCardState extends State<PostCard> {
   Future<void> _loadPostUser() async {
     try {
       DocumentSnapshot userDoc = await _firestoreService.getUser(widget.post.userId);
-      if (userDoc.exists && mounted) { // Add mounted check
+      if (userDoc.exists) {
         setState(() {
           _postUser = UserModel.fromFirestore(userDoc);
         });
       }
     } catch (e) {
-      if (mounted) {
-        print('Error loading user: $e');
-      }
+      print('Error loading user: $e');
     }
   }
 
@@ -52,11 +48,9 @@ class _PostCardState extends State<PostCard> {
     final currentUserId = _authService.currentUser?.uid;
     if (currentUserId != null) {
       bool liked = await _firestoreService.hasLikedPost(widget.post.id, currentUserId);
-      if (mounted) {
-        setState(() {
-          _isLiked = liked;
-        });
-      }
+      setState(() {
+        _isLiked = liked;
+      });
     }
   }
 
@@ -96,53 +90,6 @@ class _PostCardState extends State<PostCard> {
           SnackBar(content: Text('Error: $e')),
         );
       }
-    }
-  }
-
-  Future<void> _toggleArchive() async {
-    try {
-      await _firestoreService.toggleArchivePost(
-        widget.post.id,
-        !widget.post.isArchived,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.post.isArchived ? 'Post unarchived' : 'Post archived',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  Color _getTypeColor() {
-    switch (widget.post.type) {
-      case 'activity':
-        return Colors.blue;
-      case 'meal':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getTypeIcon() {
-    switch (widget.post.type) {
-      case 'activity':
-        return Icons.directions_run;
-      case 'meal':
-        return Icons.restaurant;
-      default:
-        return Icons.image;
     }
   }
 
@@ -194,6 +141,31 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
+  Future<void> _toggleArchive() async {
+    try {
+      await _firestoreService.toggleArchivePost(
+        widget.post.id,
+        !widget.post.isArchived,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.post.isArchived ? 'Post unarchived' : 'Post archived',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   void _showDeleteDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -222,35 +194,7 @@ class _PostCardState extends State<PostCard> {
 
   Future<void> _deletePost() async {
     try {
-      // Delete post document
-      await FirebaseFirestore.instance
-          .collection('posts')
-          .doc(widget.post.id)
-          .delete();
-
-      // Delete all likes for this post
-      QuerySnapshot likes = await FirebaseFirestore.instance
-          .collection('likes')
-          .where('postId', isEqualTo: widget.post.id)
-          .get();
-
-      for (var doc in likes.docs) {
-        await doc.reference.delete();
-      }
-
-      // Delete all comments for this post
-      QuerySnapshot comments = await FirebaseFirestore.instance
-          .collection('comments')
-          .where('postId', isEqualTo: widget.post.id)
-          .get();
-
-      for (var doc in comments.docs) {
-        await doc.reference.delete();
-      }
-
-      // Delete image from storage
-      await _storageService.deleteImage(widget.post.imageUrl);
-
+      await _firestoreService.deletePost(widget.post.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Post deleted')),
@@ -265,8 +209,24 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  Widget _buildActivityDetail(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey[700]),
+          const SizedBox(width: 8),
+          Text(text, style: TextStyle(color: Colors.grey[700])),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentUserId = _authService.currentUser?.uid;
+    final isOwnPost = currentUserId == widget.post.userId;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       child: Column(
@@ -292,7 +252,7 @@ class _PostCardState extends State<PostCard> {
                       : null,
                 ),
                 const SizedBox(width: 12),
-                // Username and post type
+                // Username and timestamp
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,66 +264,35 @@ class _PostCardState extends State<PostCard> {
                           fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(
-                            _getTypeIcon(),
-                            size: 14,
-                            color: _getTypeColor(),
+                      if (widget.post.createdAt != null)
+                        Text(
+                          _formatTimestamp(widget.post.createdAt!),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.post.type,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _getTypeColor(),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
                     ],
                   ),
                 ),
-                if (widget.post.userId == _authService.currentUser?.uid)
+                // Options menu (only for own posts)
+                if (isOwnPost)
                   IconButton(
                     icon: const Icon(Icons.more_vert),
-                      onPressed: () => _showPostOptions(context),
-                 ),
+                    onPressed: () => _showPostOptions(context),
+                  ),
               ],
             ),
           ),
 
           // Post image
-          AspectRatio(
-            aspectRatio: 1,
-            child: Image.network(
-              widget.post.imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Icon(Icons.error, size: 50),
-                  ),
-                );
-              },
-            ),
+          Image.network(
+            widget.post.imageUrl,
+            width: double.infinity,
+            fit: BoxFit.cover,
           ),
 
-          // Action buttons (like, comment)
+          // Action buttons (like, comment, share)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: Row(
@@ -371,14 +300,11 @@ class _PostCardState extends State<PostCard> {
                 IconButton(
                   icon: Icon(
                     _isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: _isLiked ? Colors.red : Colors.black,
+                    color: _isLiked ? Colors.red : null,
                   ),
                   onPressed: _toggleLike,
                 ),
-                Text(
-                  '$_likeCount',
-                  style: const TextStyle(fontSize: 14),
-                ),
+                Text('$_likeCount'),
                 const SizedBox(width: 16),
                 IconButton(
                   icon: const Icon(Icons.comment_outlined),
@@ -390,10 +316,7 @@ class _PostCardState extends State<PostCard> {
                     );
                   },
                 ),
-                Text(
-                  '${widget.post.commentCount}',
-                  style: const TextStyle(fontSize: 14),
-                ),
+                Text('${widget.post.commentCount}'),
               ],
             ),
           ),
@@ -401,10 +324,10 @@ class _PostCardState extends State<PostCard> {
           // Caption
           if (widget.post.caption.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: RichText(
                 text: TextSpan(
-                  style: const TextStyle(color: Colors.black, fontSize: 14),
+                  style: DefaultTextStyle.of(context).style,
                   children: [
                     TextSpan(
                       text: '${_postUser?.username ?? ''} ',
@@ -416,30 +339,134 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
 
-          // Timestamp
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Text(
-              _formatTimestamp(widget.post.createdAt),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+          // Activity data section (if post type is activity)
+          if (widget.post.type == 'activity' && widget.post.activityData != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.greenAccent),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Activity Type Header
+                    if (widget.post.activityData!['activityType'] != null)
+                      Row(
+                        children: [
+                          Icon(Icons.fitness_center, size: 20, color: Colors.greenAccent[700]),
+                          const SizedBox(width: 8),
+                          Text(
+                            widget.post.activityData!['activityType'],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.greenAccent[700],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    // Commentary
+                    if (widget.post.activityData!['commentary'] != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.post.activityData!['commentary'],
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+
+                    // Exercises
+                    if (widget.post.activityData!['exercises'] != null &&
+                        (widget.post.activityData!['exercises'] as List).isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Exercises',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ...(widget.post.activityData!['exercises'] as List).map((exercise) {
+                        final ex = exercise as Map<String, dynamic>;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              Icon(Icons.circle, size: 6, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ex['name'],
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    if ([ex['sets'], ex['reps'], ex['weight']].any((e) => e != null))
+                                      Text(
+                                        [
+                                          if (ex['sets'] != null) '${ex['sets']} sets',
+                                          if (ex['reps'] != null) '${ex['reps']} reps',
+                                          if (ex['weight'] != null) '${ex['weight']} lbs',
+                                        ].join(' • '),
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+
+                    // Location & Distance
+                    if (widget.post.activityData!['location'] != null ||
+                        widget.post.activityData!['distance'] != null) ...[
+                      const SizedBox(height: 8),
+                      if (widget.post.activityData!['location'] != null)
+                        _buildActivityDetail(
+                          Icons.location_on,
+                          widget.post.activityData!['location'],
+                        ),
+                      if (widget.post.activityData!['distance'] != null)
+                        _buildActivityDetail(
+                          Icons.straighten,
+                          widget.post.activityData!['distance'],
+                        ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
+
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  String _formatTimestamp(DateTime? timestamp) {
-    if (timestamp == null) return '';
-
+  String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
     if (difference.inDays > 7) {
-      return '${timestamp.month}/${timestamp.day}/${timestamp.year}';
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
     } else if (difference.inDays > 0) {
       return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
