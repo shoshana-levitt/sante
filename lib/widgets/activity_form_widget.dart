@@ -1,3 +1,4 @@
+// lib/widgets/activity_form_widget.dart
 import 'package:flutter/material.dart';
 
 class ActivityFormWidget extends StatefulWidget {
@@ -150,7 +151,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
           TextField(
             controller: _commentaryController,
             decoration: InputDecoration(
-              labelText: 'Commentary (optional)',
+              labelText: 'Commentary',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -165,7 +166,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
           TextField(
             controller: _activityTypeController,
             decoration: InputDecoration(
-              labelText: 'Type of Activity (optional)',
+              labelText: 'Type of Activity',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -181,7 +182,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Exercises (optional)',
+                'Exercises',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -190,10 +191,11 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
               ),
               TextButton.icon(
                 onPressed: _addExercise,
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Add Exercise'),
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                label: const Text('Add'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.greenAccent[700],
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
             ],
@@ -272,7 +274,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
           TextField(
             controller: _locationController,
             decoration: InputDecoration(
-              labelText: 'Location (optional)',
+              labelText: 'Location',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -287,7 +289,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
           TextField(
             controller: _distanceController,
             decoration: InputDecoration(
-              labelText: 'Distance (optional)',
+              labelText: 'Distance',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),

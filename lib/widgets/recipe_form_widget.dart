@@ -153,7 +153,7 @@ class _RecipeFormWidgetState extends State<RecipeFormWidget> {
           TextField(
             controller: _commentaryController,
             decoration: InputDecoration(
-              labelText: 'Commentary (optional)',
+              labelText: 'Commentary',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -195,7 +195,7 @@ class _RecipeFormWidgetState extends State<RecipeFormWidget> {
           TextField(
             controller: _cookTimeController,
             decoration: InputDecoration(
-              labelText: 'Cook Time (optional)',
+              labelText: 'Cook Time',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -211,7 +211,7 @@ class _RecipeFormWidgetState extends State<RecipeFormWidget> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Ingredients (optional)',
+                'Ingredients',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -220,10 +220,11 @@ class _RecipeFormWidgetState extends State<RecipeFormWidget> {
               ),
               TextButton.icon(
                 onPressed: _addIngredient,
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Add Ingredient'),
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                label: const Text('Add'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.orange[700],
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
             ],
@@ -300,7 +301,7 @@ class _RecipeFormWidgetState extends State<RecipeFormWidget> {
           TextField(
             controller: _instructionsController,
             decoration: InputDecoration(
-              labelText: 'Instructions (optional)',
+              labelText: 'Instructions',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -399,7 +400,7 @@ class _IngredientDialogState extends State<_IngredientDialog> {
             TextField(
               controller: _amountController,
               decoration: InputDecoration(
-                labelText: 'Amount (optional)',
+                labelText: 'Amount',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
